@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/mvc"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:beans="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+	<!-- DispatcherServlet Context: defines this servlet's request-processing 
+		infrastructure -->
+
+	<!-- Enables the Spring MVC @Controller programming model -->
+	<annotation-driven />
+
+	<!-- Handles HTTP GET requests for /resources/** by efficiently serving 
+		up static resources in the ${webappRoot}/resources directory -->
+	<resources mapping="/resources/**" location="/resources/" />
+
+	<!-- Resolves views selected for rendering by @Controllers to .jsp resources 
+		in the /WEB-INF/views directory -->
+	<beans:bean
+		class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<beans:property name="prefix" value="/WEB-INF/views/" />
+		<beans:property name="suffix" value=".jsp" />
+	</beans:bean>
+
+	<interceptors>
+		<beans:bean id="webContentInterceptor"
+			class="org.springframework.web.servlet.mvc.WebContentInterceptor">
+			<beans:property name="cacheSeconds" value="0" />
+			<beans:property name="useExpiresHeader" value="true" />
+			<beans:property name="useCacheControlHeader" value="true" />
+			<beans:property name="useCacheControlNoStore" value="true" />
+
+		</beans:bean>
+	</interceptors>
+	
+	   <beans:bean
+		class="org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor" />
+	<!-- DispatcherServlet Context: defines this servlet's request-processing 
+		infrastructure -->
+
+	<beans:bean id="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<beans:property name="persistenceXmlLocation" value="classpath:/META-INF/persistence.xml"/>
+		<beans:property name="dataSource" ref="dataSource" />
+
+		<beans:property name="jpaVendorAdapter">
+			<beans:bean
+				class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+				<beans:property name="database" value="MYSQL" />
+				<beans:property name="showSql" value="true" />
+			</beans:bean>
+		</beans:property>
+		
+	</beans:bean>
+	
+	
+
+    <beans:bean id="dataSource" class="com.zaxxer.hikari.HikariDataSource"  destroy-method="close">
+	     			<beans:property name="dataSourceClassName" value="com.mysql.jdbc.jdbc2.optional.MysqlDataSource"/>
+					<beans:property name="maximumPoolSize" value="5" />
+			        <beans:property name="maxLifetime" value="30000" />
+			        <beans:property name="idleTimeout" value="30000" />
+					<beans:property name="dataSourceProperties">
+					          <beans:props>
+					              <beans:prop key="url">jdbc:mysql://198.71.225.57:3306/edjab_dev</beans:prop>
+					              <beans:prop key="user">edjab_dev</beans:prop>
+					              <beans:prop key="password">edjab2015</beans:prop>
+							       <beans:prop key="prepStmtCacheSize">250</beans:prop>
+							       <beans:prop key="prepStmtCacheSqlLimit">2048</beans:prop>
+					               <beans:prop key="cachePrepStmts">true</beans:prop>
+							       <beans:prop key="useServerPrepStmts">true</beans:prop>
+					          </beans:props>
+					</beans:property>
+	</beans:bean>
+    
+	<beans:bean id="baseModel" class="com.edjab.model.client.DynamoClient" scope="prototype">   			
+	</beans:bean>
+	
+	<beans:bean id="modelsPool" class="com.edjab.db.load.pool.CustomPool" init-method="initCustomPool">  
+        <beans:property name="targetBeanName" value="baseModel" />
+        <beans:property name="maxSize" value="100"/>
+        <beans:property name="maxIdle" value="10" />
+        <beans:property name="minIdle" value="5" />
+    </beans:bean>
+   
+    <beans:bean id="model" class="org.springframework.aop.framework.ProxyFactoryBean">
+        <beans:property name="targetSource" ref="modelsPool"/>
+        <!--beans:property name="interceptorNames" value="myInterceptor"/-->
+    </beans:bean>
+	
+	
+	
+	
+	<beans:bean id="poolConfigAdvisor" class="org.springframework.beans.factory.config.MethodInvokingFactoryBean" >
+		<beans:property name="targetObject" ref="modelsPool" />
+		<beans:property name="targetMethod" value="getPoolingConfigMixin" />
+	</beans:bean>
+	
+	<beans:bean id="pooled" class="org.springframework.aop.framework.ProxyFactoryBean" >
+		<beans:property name="targetSource" ref="modelsPool" />
+		<beans:property name="interceptorNames" value="poolConfigAdvisor" />
+		<beans:property name="proxyTargetClass" value="true" />
+	</beans:bean>
+  	
+	<beans:bean id="transactionManager"
+		class="org.springframework.orm.jpa.JpaTransactionManager">
+		<beans:property name="entityManagerFactory" ref="entityManagerFactory" />
+	</beans:bean>
+	
+	<tx:annotation-driven transaction-manager="transactionManager" />
+
+	<context:component-scan base-package="com.edjab" />
+
+	<beans:bean id="encoder"
+		class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder">
+
+		<beans:constructor-arg value="12" />
+	</beans:bean>
+
+</beans:beans>
